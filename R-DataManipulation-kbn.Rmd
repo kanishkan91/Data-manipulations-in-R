@@ -1,0 +1,160 @@
+---
+title: "Data manipulations in R"
+author: Kanishka Narayan (kbn)
+contents: This module contains code for the following,
+           1) Converting Data from Wide to Long Format
+           2) Adding an Earliest and Most Recent columns to a time series dataset
+           3) Computing moving averages at different time intervals 
+           4) Plotting moving averages in 3) above on line graphs
+files required: Please download the files DataforR and TFPBaseData and save the same to a folder named
+                Rfiles located in "C:\Users\Public\Rfiles"
+R packages required: tidyr,xlsx,readxl,tibble,tidyverse,dplyr,zoo,gglpot2
+In case of questions contact: Kanishka Narayan (kanishkan91@gmail.com)
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+```{r,installations for the project}
+library(tidyr)
+library(xlsx)
+library(readxl)
+library(tibble)
+library(tidyverse)
+library(dplyr)
+library(zoo)
+library(ggplot2)
+```
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r, Convert Data from Wide to Long Format}
+#Read in data
+
+DataForR <- read_excel("C:/Users/Public/Rfiles/DataForR.xlsx", 
+    sheet = "Sheet1")
+
+data <- DataForR
+
+#Convert to long format
+data_long <- gather(data,Year,Value, c("1997":"2016"), factor_key=TRUE)
+
+#Omit N/A
+data_long <- na.omit(data_long)
+
+#Write to excel
+write.xlsx(data_long, file = "MyWork.xlsx",
+      sheetName = "MyWork", append = FALSE)
+
+
+```
+
+```{r, Add Earliest and Most Recent Columns to time series data}
+#Read in data
+
+DataForR <- read_excel("C:/Users/Public/Rfiles/DataForR.xlsx", 
+    sheet = "Sheet1")
+
+
+data <- DataForR
+
+
+data2 <- gather(data,Year,Value, c("1997":"2016"), factor_key=TRUE)
+#data2 <- data.frame(data2)
+
+
+data2 <- na.omit(data2)
+
+data <- data2 %>%
+  group_by(Country)%>%
+  summarise(Earliest=first(Value),MostRecent=last(Value)) %>% 
+  left_join(data)
+```
+
+```{r, Compute moving averages on a given dataset}
+
+fnrollmean <- function (x) {
+  if (length(x) < 5) {
+    rep(NA,length(x)) 
+  } else {
+    rollmean(x,5,align="center",na.pad=TRUE)
+  }
+}
+
+fnrollmean3 <- function (x) {
+  if (length(x) < 3) {
+    rep(NA,length(x)) 
+  } else {
+    rollmean(x,3,align="center",na.pad=TRUE)
+  }
+}
+
+fnrollmean10 <- function (x) {
+  if (length(x) < 10) {
+    rep(NA,length(x)) 
+  } else {
+    rollmean(x,10,align="center",na.pad=TRUE)
+  }
+}
+
+#Read in data
+
+TFPBaseData <- read_excel("C:/Users/Public/Rfiles/TFPBaseData.xlsx", 
+    sheet = "ConfBoardFinal")
+
+
+CBMovingAverage <- TFPBaseData
+CBMovingAverage <- data.frame(TFPBaseData)
+CBMovingAverage <- CBMovingAverage[,-c(3:5)]
+CBMovingAverage <- na.omit(CBMovingAverage)
+
+MovAvg5 <- CBMovingAverage %>%
+           group_by(Country.name)%>%
+           mutate(rollavg5=fnrollmean(Total.Factor.Productivity))
+           
+            
+MovAvg3<- CBMovingAverage %>%
+           group_by(Country.name)%>%
+           mutate(rollavg3=fnrollmean3(Total.Factor.Productivity))
+           
+        
+
+MovAvg10<- CBMovingAverage %>%
+           group_by(Country.name)%>%
+           mutate(rollavg10=fnrollmean10(Total.Factor.Productivity))
+```
+
+```{r, plot moving averages with the moving averages calculated above}
+MovAvg5<- data.frame(MovAvg5)
+MovAvg10<- data.frame(MovAvg10)
+MovAvg3<- data.frame(MovAvg3)
+
+
+MovAvg5<- MovAvg5%>%
+           group_by(Col3)%>%
+           summarise(Avg5Yrs=mean(rollavg5))
+MovAvg5<- na.omit(MovAvg5)
+           
+MovAvg10<- MovAvg10%>%
+           group_by(Col3)%>%
+           summarise(Avg10Yrs=mean(rollavg10))
+MovAvg10<- na.omit(MovAvg10)
+
+MovAvg3<- MovAvg3%>%
+           group_by(Col3)%>%
+           summarise(Avg3Yrs=mean(rollavg3))
+MovAvg3<- na.omit(MovAvg3)
+
+ggplot()+
+        geom_line(data=MovAvg10,aes(x=Col3,y=(Avg10Yrs)),color="red")+
+        geom_line(data=MovAvg5,aes(x=Col3,y=(Avg5Yrs)),color="blue")+
+        geom_line(data=MovAvg3,aes(x=Col3,y=(Avg3Yrs)),color="green")+
+        xlab("Year")+
+        ylab("TFP")
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
